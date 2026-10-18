@@ -1,0 +1,23 @@
+# 拾页服务端配置示例
+# 复制为 /etc/shiye/config.toml，填入真实值，并 chmod 600
+
+listen = "127.0.0.1:8080"          # 由 Caddy 反代，不要直接暴露公网
+base_path = "shiye"                # 统一前缀 → /shiye/api/v1/*、/shiye/s/*
+public_base_url = "https://<HOST>" # 生成分享链接用；换域名只改这里
+data_dir = "/var/lib/shiye"
+share_ttl_days = 30
+
+# 上传与图片约束
+max_upload_bytes = 6291456         # 6 MB
+max_image_pixels = 25000000        # 25 MP
+display_max_edge = 1600            # 原文预览图长边
+thumb_max_edge = 320               # 列表缩略图长边
+
+# OCR 并发（百度 query QPS 上限 5）
+ocr_concurrency = 2
+ocr_poll_interval_secs = 3
+ocr_timeout_secs = 1800
+
+[baidu]
+api_key = "…"
+secret_key = "…"

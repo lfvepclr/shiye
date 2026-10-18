@@ -1,0 +1,29 @@
+# 拾页 · Caddy 反代
+# 真实域名通过 deploy/local.env 的 SHIYE_DOMAIN 注入，不写进仓库。
+# 用法：SHIYE_DOMAIN=your.domain caddy run --config deploy/Caddyfile
+
+{$SHIYE_DOMAIN} {
+	encode zstd gzip
+
+	# 统一前缀全部转给 shiye-server
+	handle /shiye/* {
+		reverse_proxy 127.0.0.1:8080
+	}
+
+	# 图片与静态资源长缓存
+	handle /shiye/s/*/img/* {
+		header Cache-Control "public, max-age=31536000, immutable"
+		reverse_proxy 127.0.0.1:8080
+	}
+
+	handle {
+		respond "Not Found" 404
+	}
+
+	log {
+		output file /var/log/caddy/shiye.log {
+			roll_size 10MiB
+			roll_keep 3
+		}
+	}
+}

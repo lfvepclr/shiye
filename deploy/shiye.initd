@@ -1,0 +1,28 @@
+#!/sbin/openrc-run
+# 拾页 · OpenRC 服务脚本（Alpine Linux，无 systemd）
+# 安装：
+#   install -m 755 deploy/shiye.initd /etc/init.d/shiye
+#   rc-update add shiye default
+#   rc-service shiye start
+
+name="shiye"
+description="Shiye document OCR service"
+
+command="/usr/local/bin/shiye-server"
+command_args="--config /etc/shiye/config.toml"
+command_user="shiye:shiye"
+command_background=true
+pidfile="/run/${RC_SVCNAME}.pid"
+
+output_log="/var/log/shiye/server.log"
+error_log="/var/log/shiye/server.log"
+
+depend() {
+	need net
+	use dns logger
+}
+
+start_pre() {
+	checkpath --directory --owner shiye:shiye --mode 0750 /var/log/shiye
+	checkpath --directory --owner shiye:shiye --mode 0750 /var/lib/shiye
+}

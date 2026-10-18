@@ -1,0 +1,37 @@
+# --- Rust ---
+server/target/
+**/*.rs.bk
+
+# --- HarmonyOS ---
+app/build/
+app/.hvigor/
+app/.cxx/
+app/oh_modules/
+app/local.properties
+app/entry/build/
+app/entry/.preview/
+**/*.hap
+**/*.hsp
+**/*.har
+**/.test/
+
+# --- 敏感信息（不得入库）---
+deploy/local.env
+app/entry/src/main/resources/rawfile/config.json
+server/config.toml
+*.pem
+*.p12
+*.cer
+*.jks
+
+# --- 运行时数据 ---
+data/
+*.db
+*.db-wal
+*.db-shm
+
+# --- 系统 / 编辑器 ---
+.DS_Store
+.idea/
+.vscode/
+*.log
