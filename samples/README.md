@@ -10,7 +10,8 @@ samples/
 │   ├── compare.html     可直接用浏览器打开的双栏对比页
 │   ├── word-1p.png      单页 docx 首页渲染
 │   ├── word-3p.png      三页 docx 首页渲染
-│   └── sample-3p.docx   三页 docx 成品
+│   ├── sample-3p.docx   三页 docx 成品
+│   └── screens/         客户端与分享页截图（流程 / 编辑 / 叠加 / Word）
 └── run.sh          一键跑一页：建组 → 上传 → 渲染 → 下载 docx
 ```
 
@@ -25,6 +26,15 @@ SHIYE_IMG=samples/pages/p01.jpg \
 ```
 
 产物默认落在 `samples/out/run/`，与 `out/` 里已有的基准图并排看即可。
+
+## 截图命名
+
+| 前缀 | 内容 |
+| --- | --- |
+| `flow-` | 主流程：相机、连拍、组编辑、排序、生成进度、保存 docx |
+| `edit-` | 单页编辑：四角矫正、裁剪、擦除 |
+| `overlay-` / `viewer-` | 分享页：原文叠加对齐、纯文本、手机单栏 |
+| `word-` / `compare-` | Word 渲染与双栏对比 |
 
 ## 约定
 

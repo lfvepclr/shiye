@@ -66,9 +66,41 @@ hdc install -r app/entry/build/default/outputs/default/entry-default-unsigned.ha
 hdc rport tcp:8080 tcp:8080
 ```
 
+## 用户流程
+
+1. **拍**：相机页连续快门不打断，缩略图条实时累加；拍错回单页重拍。
+2. **校**：单页编辑拖动四角做透视矫正，可裁剪、擦除手指/阴影，滑杆调增强。
+3. **排**：组编辑页长按拖动调整页序，页序即 Word 页序；也可多选删除。
+4. **生成**：点「生成 Word」，进度页逐页显示识别状态，失败页单独重试。
+5. **取**：完成后下载 docx，或点块复制纯文本 / 富文本直接粘进 Word。
+6. **分享**：生成只读链接，浏览器打开即是「原文（识别结果叠在原图上）/ 文本」双视图。
+
+| 拍 | 排 | 生成 | 取用 |
+| --- | --- | --- | --- |
+| <img src="samples/out/screens/flow-camera.jpg" width="170"> | <img src="samples/out/screens/flow-sort.jpg" width="170"> | <img src="samples/out/screens/flow-progress.jpg" width="170"> | <img src="samples/out/screens/flow-docx.jpg" width="170"> |
+
+| 四角矫正 | 裁剪 | 擦除 |
+| --- | --- | --- |
+| <img src="samples/out/screens/edit-preview.jpg" width="200"> | <img src="samples/out/screens/edit-crop.jpg" width="200"> | <img src="samples/out/screens/edit-erase.jpg" width="200"> |
+
+## 测试结果
+
+昨日（2026-10-18）在 Pura 70 模拟器 + 本机服务端上跑通，截图见 `samples/out/screens/`：
+
+| 验证项 | 结果 | 截图（`screens/`） |
+| --- | --- | --- |
+| 端到端：拍 5 页 → 排序 → 生成 → 保存 docx | 通过，单页约 2s 出结果 | `flow-burst` `flow-pages` `flow-progress` `flow-docx` |
+| 单页编辑：四角矫正 / 裁剪 / 擦除 / 增强 | 通过，保存后刷新仍生效 | `edit-preview` `edit-crop` `edit-erase` |
+| 分享页原文视图（识别结果叠在原图上） | 通过，1080px 与 390px 两档叠加对齐 | `overlay-1080` `overlay-390` `viewer-1080-on` |
+| 分享页「纯文本 / 文本」切换 | 通过，隐藏底图后版式不跳动 | `viewer-1080-off` |
+| 手机单栏（390px） | 通过，字号与卡片间距正常 | `viewer-390-on` |
+| Word 版式保真（标题层级 / 表格 / 插图 / 公式） | 基本一致，表格列宽和插图位置仍有偏差 | `word-preview` `word-3p` `compare-1p` |
+
+版式对比直接打开 `samples/out/compare.html`（左原图、右 Word 渲染）；原文叠加是否压准，看 `overlay-1080` / `overlay-390` 两档，或在浏览器里逐块量 `getBoundingClientRect()` 与 bbox 的偏差（阈值 0.4% 页宽）。
+
 ## 测试素材
 
-`samples/pages/` 放输入的课本扫描（`pNN.jpg`），`samples/out/` 放 Word 渲染图、docx 成品和 `compare.html` 双栏对比页；每轮新产物写到 `samples/out/run/`（不入库）。
+`samples/pages/` 放输入的课本扫描（`pNN.jpg`），`samples/out/` 放 Word 渲染图、docx 成品、流程截图（`screens/`）和 `compare.html` 双栏对比页；每轮新产物写到 `samples/out/run/`（不入库）。
 
 ```bash
 SHIYE_IMG=samples/pages/p01.jpg ./samples/run.sh   # 建组 → 上传 → 渲染 → 下载 docx → 分享链接
