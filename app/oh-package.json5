@@ -1,0 +1,8 @@
+{
+  "modelVersion": "5.0.0",
+  "name": "shiye",
+  "version": "0.1.0",
+  "description": "拾页 · 纸质文档拍照转 Word",
+  "dependencies": {},
+  "devDependencies": {}
+}

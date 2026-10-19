@@ -1,0 +1,9 @@
+{
+  "string": [
+    { "name": "module_desc", "value": "拾页主模块" },
+    { "name": "EntryAbility_desc", "value": "拾页" },
+    { "name": "EntryAbility_label", "value": "拾页" },
+    { "name": "reason_camera", "value": "用于拍摄纸质文档" },
+    { "name": "reason_bg", "value": "上传文档时需要保持后台运行" }
+  ]
+}
