@@ -36,3 +36,7 @@ data/
 .idea/
 .vscode/
 *.log
+
+# --- 项目内临时目录 ---
+.tmp/
+samples/out/run/

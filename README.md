@@ -43,6 +43,39 @@ cp app/entry/src/main/resources/rawfile/config.example.json \
    app/entry/src/main/resources/rawfile/config.json
 ```
 
+## 客户端
+
+用 DevEco Studio 26 打开 `app/` 直接运行；或在命令行用 DevEco 自带的 hvigor 构建（macOS）：
+
+```bash
+cd app
+DEVECO_SDK_HOME=/Applications/DevEco-Studio.app/Contents/sdk \
+  /Applications/DevEco-Studio.app/Contents/tools/node/bin/node \
+  /Applications/DevEco-Studio.app/Contents/tools/hvigor/bin/hvigorw.js --no-daemon assembleHap
+```
+
+产物为 `app/entry/build/default/outputs/default/entry-default-unsigned.hap`（未签名，可直接装模拟器）：
+
+```bash
+hdc install -r app/entry/build/default/outputs/default/entry-default-unsigned.hap
+```
+
+联调时把 `rawfile/config.json` 的 `serverBase` 指向本机服务端；模拟器访问宿主机可用端口反向映射：
+
+```bash
+hdc rport tcp:8080 tcp:8080
+```
+
+## 测试素材
+
+`samples/pages/` 放输入的课本扫描（`pNN.jpg`），`samples/out/` 放 Word 渲染图、docx 成品和 `compare.html` 双栏对比页；每轮新产物写到 `samples/out/run/`（不入库）。
+
+```bash
+SHIYE_IMG=samples/pages/p01.jpg ./samples/run.sh   # 建组 → 上传 → 渲染 → 下载 docx → 分享链接
+```
+
+细节见 `samples/README.md`，待办见 `.agent/202610190815-todo.md`。
+
 ## 敏感信息
 
 主机地址、域名、SSH、百度 AK/SK **一律不入库**。仓库内只允许出现 `<HOST>` 占位符。
