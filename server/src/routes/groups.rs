@@ -181,7 +181,7 @@ pub async fn delete(
     Ok(StatusCode::NO_CONTENT)
 }
 
-async fn fetch_group(st: &AppState, device_id: &str, id: &str) -> AppResult<Group> {
+pub(crate) async fn fetch_group(st: &AppState, device_id: &str, id: &str) -> AppResult<Group> {
     crate::storage::safe_id(id)?;
     sqlx::query_as::<_, Group>(
         "SELECT id, title, state, page_count, done_count, docx_rev, created_at, updated_at

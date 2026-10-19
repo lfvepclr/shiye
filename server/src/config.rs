@@ -117,9 +117,9 @@ impl Config {
         self.data_dir.join("g")
     }
 
-    /// 测试用配置：数据目录指向临时目录。
-    #[cfg(test)]
-    pub fn default_for_test(data_dir: PathBuf) -> Self {
+    /// 测试用配置：数据目录指向临时目录。生产路径不会调用。
+    #[doc(hidden)]
+    pub fn for_test(data_dir: PathBuf) -> Self {
         Self {
             listen: default_listen(),
             base_path: default_base_path(),

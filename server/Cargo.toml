@@ -33,6 +33,16 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 thiserror = "2"
 anyhow = "1"
+reqwest = { version = "0.12", default-features = false, features = [
+    "json",
+    "rustls-tls",
+] }
+image = { version = "0.25", default-features = false, features = [
+    "jpeg",
+    "png",
+] }
+base64 = "0.22"
+docx-rs = { version = "0.4", default-features = false, features = ["image"] }
 
 [dev-dependencies]
 tempfile = "3"

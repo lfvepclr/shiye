@@ -1,11 +1,14 @@
 //! 路由装配。所有路由由 `main` 统一挂到 `/shiye` 前缀下。
 
 pub mod groups;
+pub mod pages;
+pub mod render;
+pub mod share;
 
 use axum::extract::State;
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
-use axum::routing::{get, post};
+use axum::routing::{delete, get, post};
 use axum::{Json, Router};
 use serde_json::json;
 
@@ -16,14 +19,24 @@ pub fn router(state: AppState) -> Router {
         .route("/groups", post(groups::create).get(groups::list))
         .route(
             "/groups/{id}",
+            // HarmonyOS 的 `http.RequestMethod` 没有 PATCH，客户端只能发 PUT，两者等价。
             get(groups::get_one)
                 .patch(groups::patch)
+                .put(groups::patch)
                 .delete(groups::delete),
-        );
+        )
+        .route("/groups/{id}/pages", post(pages::upload))
+        .route("/pages/{id}", delete(pages::remove).put(pages::replace))
+        .route("/groups/{id}/render", post(render::start))
+        .route("/groups/{id}/status", get(render::status))
+        .route("/groups/{id}/docx", get(render::download_docx))
+        .route("/groups/{id}/share", post(share::create))
+        .route("/shares/{token}", delete(share::revoke));
 
     Router::new()
         .route("/healthz", get(healthz))
         .nest("/api/v1", api)
+        .nest("/s", share::viewer_router())
         .with_state(state)
 }
 
