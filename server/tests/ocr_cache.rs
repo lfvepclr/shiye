@@ -105,10 +105,13 @@ async fn cache_hit_skips_baidu() {
     let page_id = page["page_id"].as_str().unwrap().to_string();
 
     // 按页面实际字节（edit.jpg）造缓存：等价于这张图以前被识别过。
-    let page_dir = dir.path().join("g").join(&group_id).join(&page_id);
+    let page_dir = dir.path().join("g").join(&group_id).join("pages").join(&page_id);
     let edit = std::fs::read(page_dir.join("edit.jpg")).unwrap();
+    // 派生预览单独一层，备份只备原件
+    assert!(page_dir.join("preview").join("disp.jpg").exists());
+    assert!(page_dir.join("preview").join("thumb.jpg").exists());
     let key = shiye_server::ocr_cache::key(&edit);
-    let cache_dir = dir.path().join("ocr").join(&key);
+    let cache_dir = shiye_server::storage::ocr_cache_dir(dir.path()).join(&key);
     std::fs::create_dir_all(&cache_dir).unwrap();
     let entry = json!({
         "version": shiye_server::ocr_cache::VERSION,
@@ -169,4 +172,23 @@ async fn cache_hit_skips_baidu() {
         .expect("缓存块应已入库");
     assert_eq!(blocks.len(), 1);
     assert_eq!(blocks[0]["text"], "缓存命中");
+
+    // 识别结果落盘：DB 之外还有一份快照，带来源标记
+    let snapshot: Value =
+        serde_json::from_slice(&std::fs::read(page_dir.join("ocr").join("result.json")).unwrap())
+            .unwrap();
+    assert_eq!(snapshot["source"], "cache");
+    assert_eq!(snapshot["w"], 400);
+    assert_eq!(snapshot["blocks"].as_array().unwrap().len(), 1);
+
+    // 新增接口：本设备可自查这一页的识别快照
+    let (status, body) = body_json(
+        &app,
+        req("GET", &format!("/shiye/api/v1/pages/{page_id}/result"))
+            .body(Body::empty())
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["source"], "cache");
 }

@@ -6,7 +6,8 @@
 use std::path::PathBuf;
 
 use axum::extract::{Multipart, Path, State};
-use axum::http::StatusCode;
+use axum::http::{header, StatusCode};
+use axum::response::{IntoResponse, Response};
 use axum::Json;
 use serde::Serialize;
 
@@ -149,8 +150,10 @@ async fn write_page_files(
         if let Some(raw) = raw {
             storage::write_atomic(&dir.join("raw.jpg"), &raw)?;
         }
-        storage::write_atomic(&dir.join("disp.jpg"), &disp)?;
-        storage::write_atomic(&dir.join("thumb.jpg"), &thumb)?;
+        // 派生预览单独一层：备份只备原件，清理只清 preview/
+        let preview = dir.join("preview");
+        storage::write_atomic(&preview.join("disp.jpg"), &disp)?;
+        storage::write_atomic(&preview.join("thumb.jpg"), &thumb)?;
         Ok(())
     })
     .await
@@ -317,4 +320,30 @@ pub async fn replace(
         w,
         h,
     }))
+}
+/// `GET /shiye/api/v1/pages/{id}/result`
+///
+/// 识别结果快照（块 + 尺寸 + 来源 + 耗时）。DB 是索引，这份文件是真相：
+/// 排障、对账、换机重建都靠它。
+pub async fn result(
+    State(st): State<AppState>,
+    dev: DeviceId,
+    Path(page_id): Path<String>,
+) -> AppResult<Response> {
+    storage::safe_id(&page_id)?;
+    let group_id: Option<String> = sqlx::query_scalar(
+        "SELECT p.group_id FROM pages p JOIN groups g ON g.id = p.group_id
+         WHERE p.id = ? AND g.device_id = ?",
+    )
+    .bind(&page_id)
+    .bind(&dev.0)
+    .fetch_optional(&st.pool)
+    .await?;
+    let group_id = group_id.ok_or(AppError::NotFound)?;
+
+    let path = storage::result_path(&st.cfg.data_dir, &group_id, &page_id);
+    let bytes = tokio::fs::read(&path)
+        .await
+        .map_err(|_| AppError::NotFound)?;
+    Ok(([(header::CONTENT_TYPE, "application/json; charset=utf-8")], bytes).into_response())
 }

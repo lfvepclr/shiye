@@ -1,24 +1,93 @@
 //! 数据目录布局与原子写。
+//!
+//! `g/` 是可备份的业务数据，`cache/` 是随时可删的派生/缓存：
+//!
+//! ```text
+//! {data_dir}/g/{group_id}/pages/{page_id}/
+//!     raw.jpg            原件（客户端上传的字节）
+//!     edit.jpg           规整后（送识别 / 进 Word）
+//!     preview/disp.jpg   原文预览（长边 display_max_edge）
+//!     preview/thumb.jpg  列表缩略（长边 thumb_max_edge）
+//!     ocr/result.json    识别结果快照
+//!     fig/fig_xxx.png    页内插图
+//! {data_dir}/g/{group_id}/docx/{rev}.docx
+//! {data_dir}/cache/ocr/{v1-hash}/…
+//! ```
 
 use std::path::{Path, PathBuf};
 
 use crate::error::{AppError, AppResult};
 
-/// `{data_dir}/g/{group_id}/{page_id}/`
-pub fn page_dir(data_dir: &Path, group_id: &str, page_id: &str) -> PathBuf {
-    data_dir.join("g").join(group_id).join(page_id)
+/// `{data_dir}/g/{group_id}/`
+pub fn group_dir(data_dir: &Path, group_id: &str) -> PathBuf {
+    data_dir.join("g").join(group_id)
 }
 
-/// 页内的具名文件：`raw.jpg` / `edit.jpg` / `disp.jpg` / `thumb.jpg` / `blocks.json`
+/// `{data_dir}/g/{group_id}/pages/`
+pub fn pages_dir(data_dir: &Path, group_id: &str) -> PathBuf {
+    group_dir(data_dir, group_id).join("pages")
+}
+
+/// `{data_dir}/g/{group_id}/pages/{page_id}/`
+pub fn page_dir(data_dir: &Path, group_id: &str, page_id: &str) -> PathBuf {
+    pages_dir(data_dir, group_id).join(page_id)
+}
+
+/// 页内的具名文件：`raw.jpg` / `edit.jpg`
 pub fn page_file(data_dir: &Path, group_id: &str, page_id: &str, name: &str) -> PathBuf {
     page_dir(data_dir, group_id, page_id).join(name)
 }
 
+/// `{data_dir}/g/{group_id}/pages/{page_id}/preview/`
+pub fn preview_dir(data_dir: &Path, group_id: &str, page_id: &str) -> PathBuf {
+    page_dir(data_dir, group_id, page_id).join("preview")
+}
+
+/// 派生预览：`disp.jpg`（原文）或 `thumb.jpg`（缩略）
+pub fn preview_file(
+    data_dir: &Path,
+    group_id: &str,
+    page_id: &str,
+    name: &str,
+) -> PathBuf {
+    preview_dir(data_dir, group_id, page_id).join(name)
+}
+
+/// `{data_dir}/g/{group_id}/pages/{page_id}/fig/`
+pub fn fig_dir(data_dir: &Path, group_id: &str, page_id: &str) -> PathBuf {
+    page_dir(data_dir, group_id, page_id).join("fig")
+}
+
+/// 页内插图：`fig_<hex>.(png|jpg)`
+pub fn fig_file(
+    data_dir: &Path,
+    group_id: &str,
+    page_id: &str,
+    name: &str,
+) -> PathBuf {
+    fig_dir(data_dir, group_id, page_id).join(name)
+}
+
+/// 识别结果快照：`…/ocr/result.json`
+pub fn result_path(data_dir: &Path, group_id: &str, page_id: &str) -> PathBuf {
+    page_dir(data_dir, group_id, page_id)
+        .join("ocr")
+        .join("result.json")
+}
+
+/// `{data_dir}/cache/`：整目录可删，删了只会重新生成/重新识别
+pub fn cache_dir(data_dir: &Path) -> PathBuf {
+    data_dir.join("cache")
+}
+
+/// `{data_dir}/cache/ocr/`
+pub fn ocr_cache_dir(data_dir: &Path) -> PathBuf {
+    cache_dir(data_dir).join("ocr")
+}
+
 /// `{data_dir}/g/{group_id}/docx/{rev}.docx`
 pub fn docx_path(data_dir: &Path, group_id: &str, rev: i64) -> PathBuf {
-    data_dir
-        .join("g")
-        .join(group_id)
+    group_dir(data_dir, group_id)
         .join("docx")
         .join(format!("{rev}.docx"))
 }

@@ -1,7 +1,7 @@
 //! 识别结果缓存：字节相同的图片不重复调用百度 OCR（按次计费）。
 //!
 //! 键为页面 `edit.jpg` 的 SHA-256，值为「适配后的块 + 页内插图」：
-//! `{data_dir}/ocr/{VERSION}-{sha256}/result.json` 与 `figs/`。
+//! `{data_dir}/cache/ocr/{VERSION}-{sha256}/result.json` 与 `figs/`。
 //!
 //! 命中时不碰网络：插图复制回页面目录，块直接入库，`ocr_ms` 只反映本地耗时，
 //! 因此从 `pages.ocr_ms` 也能看出这次是缓存命中。
@@ -45,7 +45,7 @@ pub fn key(image: &[u8]) -> String {
 
 /// 读缓存；任何异常都当未命中（缓存坏了不能挡住正常识别）。
 pub fn load(data_dir: &Path, key: &str) -> Option<Hit> {
-    let dir = data_dir.join("ocr").join(key);
+    let dir = storage::ocr_cache_dir(data_dir).join(key);
     let raw = std::fs::read(dir.join("result.json")).ok()?;
     let entry: Entry = serde_json::from_slice(&raw).ok()?;
     if entry.version != VERSION {
@@ -63,8 +63,8 @@ pub fn load(data_dir: &Path, key: &str) -> Option<Hit> {
     })
 }
 
-/// 把缓存里的插图复制回页面目录（块里的 `<img src="fig_x.png">` 依赖这些文件）。
-pub fn materialize(hit: &Hit, page_dir: &Path) -> AppResult<()> {
+/// 把缓存里的插图复制回页面的 `fig/` 目录（块里的 `<img src="fig_x.png">` 依赖这些文件）。
+pub fn materialize(hit: &Hit, fig_dir: &Path) -> AppResult<()> {
     let figs = hit.dir.join("figs");
     let Ok(entries) = std::fs::read_dir(&figs) else {
         return Ok(());
@@ -77,7 +77,7 @@ pub fn materialize(hit: &Hit, page_dir: &Path) -> AppResult<()> {
             continue;
         }
         let bytes = std::fs::read(entry.path()).map_err(AppError::internal)?;
-        storage::write_atomic(&page_dir.join(name), &bytes)?;
+        storage::write_atomic(&fig_dir.join(name), &bytes)?;
     }
     Ok(())
 }
@@ -89,9 +89,9 @@ pub fn save(
     width: u32,
     height: u32,
     blocks: &[Block],
-    page_dir: &Path,
+    fig_dir: &Path,
 ) -> AppResult<()> {
-    let root = data_dir.join("ocr");
+    let root = storage::ocr_cache_dir(data_dir);
     std::fs::create_dir_all(&root).map_err(AppError::internal)?;
 
     let tmp = root.join(format!(".tmp-{}", uuid::Uuid::new_v4().simple()));
@@ -108,7 +108,7 @@ pub fn save(
     std::fs::write(tmp.join("result.json"), json).map_err(AppError::internal)?;
 
     for name in collect_figs(blocks) {
-        let src = page_dir.join(&name);
+        let src = fig_dir.join(&name);
         if !src.exists() {
             continue;
         }
@@ -228,7 +228,7 @@ mod tests {
     fn load_misses_when_version_changes() {
         let tmp = tempfile::tempdir().unwrap();
         let k = key(b"image");
-        let dir = tmp.path().join("ocr").join(&k);
+        let dir = storage::ocr_cache_dir(tmp.path()).join(&k);
         std::fs::create_dir_all(&dir).unwrap();
         std::fs::write(
             dir.join("result.json"),
@@ -241,7 +241,7 @@ mod tests {
     #[test]
     fn prune_keeps_newest() {
         let tmp = tempfile::tempdir().unwrap();
-        let root = tmp.path().join("ocr");
+        let root = storage::ocr_cache_dir(tmp.path());
         std::fs::create_dir_all(&root).unwrap();
         // 直接造 MAX_ENTRIES + 1 个目录，看是否只删 1 个
         for i in 0..=MAX_ENTRIES {

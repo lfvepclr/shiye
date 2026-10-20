@@ -117,7 +117,7 @@ pub async fn download_docx(
     let gid = group_id.clone();
     let bytes = tokio::task::spawn_blocking(move || {
         let load_fig = |page_id: &str, name: &str| -> Option<Vec<u8>> {
-            std::fs::read(storage::page_file(&data_dir, gid.as_str(), page_id, name)).ok()
+            std::fs::read(storage::fig_file(&data_dir, gid.as_str(), page_id, name)).ok()
         };
         docx::build(&title, &pages, &load_fig)
     })

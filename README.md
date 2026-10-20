@@ -55,9 +55,25 @@ cp app/entry/src/main/resources/rawfile/config.example.json \
    app/entry/src/main/resources/rawfile/config.json
 ```
 
+## 数据目录
+
+```
+{data_dir}/g/<group_id>/pages/<page_id>/
+    raw.jpg            原件
+    edit.jpg           规整后（送识别 / 进 Word）
+    preview/disp.jpg   原文预览（长边 1600）
+    preview/thumb.jpg  列表缩略（长边 320）
+    ocr/result.json    识别结果快照（块 + 尺寸 + 来源 + 耗时）
+    fig/fig_xxx.png    页内插图
+{data_dir}/g/<group_id>/docx/<rev>.docx
+{data_dir}/cache/ocr/<v1-hash>/    纯缓存，整目录可删
+```
+
+`g/` 是业务数据，备份只备这一层；`cache/` 删掉只会触发重新生成/重新识别。识别结果同时写进 SQLite 与 `ocr/result.json`，可通过 `GET /api/v1/pages/{id}/result` 取回。
+
 ## 识别缓存
 
-百度 OCR 按次计费，同一张图不该识别两次。服务端以页面 `edit.jpg` 的 SHA-256 为键，把适配后的块与页内插图缓存在 `{data_dir}/ocr/v1-<sha256>/`（`result.json` + `figs/`）：
+百度 OCR 按次计费，同一张图不该识别两次。服务端以页面 `edit.jpg` 的 SHA-256 为键，把适配后的块与页内插图缓存在 `{data_dir}/cache/ocr/v1-<sha256>/`（`result.json` + `figs/`）：
 
 - 重传、换组、失败重试命中同一张图 → 直接读缓存，完全不联网；
 - 命中时 `pages.ocr_ms` 只剩本地耗时（毫秒级），可据此判断；

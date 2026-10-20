@@ -247,7 +247,7 @@ pub async fn image(
     } else {
         "thumb.jpg"
     };
-    let path = storage::page_file(&st.cfg.data_dir, &share.group_id, &page_id, name);
+    let path = storage::preview_file(&st.cfg.data_dir, &share.group_id, &page_id, name);
     let bytes = tokio::fs::read(&path)
         .await
         .map_err(|_| AppError::NotFound)?;
@@ -262,7 +262,7 @@ pub async fn figure(
     let share = resolve(&st, &token).await?;
     ensure_page_owner(&st, &share.group_id, &page_id).await?;
     let safe = sanitize_fig_name(&name).ok_or(AppError::NotFound)?;
-    let path = storage::page_file(&st.cfg.data_dir, &share.group_id, &page_id, &safe);
+    let path = storage::fig_file(&st.cfg.data_dir, &share.group_id, &page_id, &safe);
     let bytes = tokio::fs::read(&path)
         .await
         .map_err(|_| AppError::NotFound)?;

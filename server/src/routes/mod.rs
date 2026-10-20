@@ -27,6 +27,7 @@ pub fn router(state: AppState) -> Router {
         )
         .route("/groups/{id}/pages", post(pages::upload))
         .route("/pages/{id}", delete(pages::remove).put(pages::replace))
+        .route("/pages/{id}/result", get(pages::result))
         .route("/groups/{id}/render", post(render::start))
         .route("/groups/{id}/status", get(render::status))
         .route("/groups/{id}/docx", get(render::download_docx))

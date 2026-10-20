@@ -293,7 +293,45 @@
     syncImageToggle();
     syncHdToggle();
     syncMarks();
+    scheduleFit();
   }
+
+  // 字号是按「单行高度中位数」估的，多行块会多出一行被裁。
+  // 逐块试排：放不下就按 6% 步进缩字，缩到 0.62 倍仍放不下才允许溢出——
+  // 宁可压到邻块（可读），也不能吞字。
+  function fitOverflowText() {
+    document.querySelectorAll('.page-card').forEach(function (card) {
+      var ovl = card.querySelector('.ovl');
+      if (!ovl) { return; }
+      var base = parseFloat(getComputedStyle(ovl).fontSize);
+      if (!base) { return; }
+      card.querySelectorAll('.ob').forEach(function (el) {
+        el.style.fontSize = '';
+        el.style.overflow = '';
+        if (el.querySelector('img, table')) { return; }
+        var size = base;
+        var floor = base * 0.62;
+        var guard = 0;
+        while (el.scrollHeight > el.clientHeight + 1 && size > floor && guard < 14) {
+          size *= 0.94;
+          el.style.fontSize = size + 'px';
+          guard++;
+        }
+        if (el.scrollHeight > el.clientHeight + 1) {
+          el.style.fontSize = '';
+          el.style.overflow = 'visible';
+        }
+      });
+    });
+  }
+
+  var fitTimer = 0;
+  function scheduleFit() {
+    clearTimeout(fitTimer);
+    fitTimer = setTimeout(fitOverflowText, 60);
+  }
+
+  window.addEventListener('resize', scheduleFit);
 
   function syncHdToggle() {
     var btn = document.getElementById('btn-hd');

@@ -170,6 +170,7 @@ async fn process_page(state: &AppState, group_id: &str, page: &PageRow) -> AppRe
     set_page_status(state, &page.id, "recognizing", None).await?;
 
     let dir = storage::page_dir(&state.cfg.data_dir, group_id, &page.id);
+    let fig_dir = storage::fig_dir(&state.cfg.data_dir, group_id, &page.id);
     let image = match tokio::fs::read(dir.join("edit.jpg")).await {
         Ok(b) => b,
         Err(e) => {
@@ -184,11 +185,21 @@ async fn process_page(state: &AppState, group_id: &str, page: &PageRow) -> AppRe
     // 同一张图（字节相同）直接复用上次结果：百度 OCR 按次计费，重传/重排/换组都不该再花钱。
     let cache_key = ocr_cache::key(&image);
     if let Some(hit) = ocr_cache::load(&state.cfg.data_dir, &cache_key) {
-        if let Err(e) = ocr_cache::materialize(&hit, &dir) {
+        if let Err(e) = ocr_cache::materialize(&hit, &fig_dir) {
             tracing::warn!(error = %e, page = %page.id, "复制缓存插图失败");
         }
         let ocr_ms = started.elapsed().as_millis() as i64;
-        store_blocks(state, &page.id, hit.width, hit.height, &hit.blocks, ocr_ms).await?;
+        store_blocks(
+            state,
+            group_id,
+            &page.id,
+            hit.width,
+            hit.height,
+            &hit.blocks,
+            ocr_ms,
+            "cache",
+        )
+        .await?;
         tracing::info!(page = %page.id, key = %cache_key, "识别缓存命中，跳过百度 OCR");
         return Ok(());
     }
@@ -235,7 +246,7 @@ async fn process_page(state: &AppState, group_id: &str, page: &PageRow) -> AppRe
         }
     };
 
-    let fig_names = download_figures(state, &page_json, &dir).await?;
+    let fig_names = download_figures(state, &page_json, &fig_dir).await?;
     let adapted = match blocks::adapt_page(&page_json, &fig_names) {
         Ok(a) => a,
         Err(e) => {
@@ -248,7 +259,7 @@ async fn process_page(state: &AppState, group_id: &str, page: &PageRow) -> AppRe
     let mut blocks_out = adapted.blocks;
     for block in &mut blocks_out {
         if block.md.contains("<img") {
-            block.md = localize_html_imgs(state, &block.md, &dir).await;
+            block.md = localize_html_imgs(state, &block.md, &fig_dir).await;
         }
     }
 
@@ -261,22 +272,35 @@ async fn process_page(state: &AppState, group_id: &str, page: &PageRow) -> AppRe
         adapted.width,
         adapted.height,
         &blocks_out,
-        &dir,
+        &fig_dir,
     ) {
         tracing::warn!(error = %e, page = %page.id, "写识别缓存失败");
     }
 
-    store_blocks(state, &page.id, adapted.width, adapted.height, &blocks_out, ocr_ms).await
+    store_blocks(
+        state,
+        group_id,
+        &page.id,
+        adapted.width,
+        adapted.height,
+        &blocks_out,
+        ocr_ms,
+        "api",
+    )
+    .await
 }
 
-/// 一页的块落库。识别与缓存命中共用同一条路径。
+/// 一页的块落库 + 识别结果快照。识别与缓存命中共用同一条路径。
+#[allow(clippy::too_many_arguments)]
 async fn store_blocks(
     state: &AppState,
+    group_id: &str,
     page_id: &str,
     width: u32,
     height: u32,
     blocks: &[Block],
     ocr_ms: i64,
+    source: &str,
 ) -> AppResult<()> {
     let mut tx = state.pool.begin().await?;
     sqlx::query("DELETE FROM blocks WHERE page_id = ?")
@@ -310,6 +334,25 @@ async fn store_blocks(
     .bind(page_id)
     .execute(&mut *tx)
     .await?;
+
+    // 识别结果快照：DB 是查询索引，文件是真相（换机/重建索引时不至于把花钱买来的结果弄丢）。
+    let snapshot = serde_json::json!({
+        "version": 1,
+        "w": width,
+        "h": height,
+        "source": source,
+        "ocr_ms": ocr_ms,
+        "blocks": blocks,
+    });
+    let snapshot = serde_json::to_vec(&snapshot)
+        .map_err(|e| AppError::internal(format!("序列化识别结果失败: {e}")));
+    if let Ok(bytes) = snapshot {
+        let path = storage::result_path(&state.cfg.data_dir, group_id, page_id);
+        if let Err(e) = storage::write_atomic(&path, &bytes) {
+            tracing::warn!(error = %e, page = %page_id, "写识别结果快照失败");
+        }
+    }
+
     tx.commit().await?;
     Ok(())
 }

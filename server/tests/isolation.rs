@@ -94,6 +94,11 @@ async fn other_device_cannot_touch_group_or_page() {
     assert_eq!(status, StatusCode::OK);
     let token = share["token"].as_str().unwrap().to_string();
 
+    // A 有一份识别快照（B 也不能读）
+    let page_dir = dir.path().join("g").join(&gid).join("pages").join(&pid);
+    std::fs::create_dir_all(page_dir.join("ocr")).unwrap();
+    std::fs::write(page_dir.join("ocr").join("result.json"), br#"{"source":"test"}"#).unwrap();
+
     // B 读不到、改不了、删不掉，也看不到 A 的组
     for (method, uri, body) in [
         ("GET", format!("/shiye/api/v1/groups/{gid}"), None),
@@ -105,6 +110,7 @@ async fn other_device_cannot_touch_group_or_page() {
         ("POST", format!("/shiye/api/v1/groups/{gid}/share"), Some("{}")),
         ("DELETE", format!("/shiye/api/v1/pages/{pid}"), None),
         ("PUT", format!("/shiye/api/v1/pages/{pid}"), None),
+        ("GET", format!("/shiye/api/v1/pages/{pid}/result"), None),
         ("DELETE", format!("/shiye/api/v1/shares/{token}"), None),
     ] {
         let request = match body {
@@ -142,6 +148,17 @@ async fn other_device_cannot_touch_group_or_page() {
     )
     .await;
     assert_eq!(status, StatusCode::OK);
+
+    // 识别快照只有归属设备能读
+    let (status, snapshot) = send(
+        &app,
+        req(DEV_A, "GET", &format!("/shiye/api/v1/pages/{pid}/result"))
+            .body(Body::empty())
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(snapshot["source"], "test");
 
     let (status, state) = send(
         &app,
