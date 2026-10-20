@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 
 /// 一个识别块。坐标为原图像素系的 `[x1,y1,x2,y2]`。
 /// `text` 为纯文本；`md` 为块级 markdown（docx / 富文本 / Viewer 文本视图的输入）。
-#[derive(Debug, Clone, Serialize, sqlx::FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
 pub struct Block {
     pub ord: i64,
     pub label: String,

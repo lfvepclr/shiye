@@ -14,8 +14,10 @@ use tokio::task::JoinSet;
 
 use crate::baidu::BaiduClient;
 use crate::blocks;
+use crate::blocks::Block;
 use crate::db;
 use crate::error::{AppError, AppResult};
+use crate::ocr_cache;
 use crate::state::AppState;
 use crate::storage;
 
@@ -178,6 +180,19 @@ async fn process_page(state: &AppState, group_id: &str, page: &PageRow) -> AppRe
     };
 
     let started = Instant::now();
+
+    // 同一张图（字节相同）直接复用上次结果：百度 OCR 按次计费，重传/重排/换组都不该再花钱。
+    let cache_key = ocr_cache::key(&image);
+    if let Some(hit) = ocr_cache::load(&state.cfg.data_dir, &cache_key) {
+        if let Err(e) = ocr_cache::materialize(&hit, &dir) {
+            tracing::warn!(error = %e, page = %page.id, "复制缓存插图失败");
+        }
+        let ocr_ms = started.elapsed().as_millis() as i64;
+        store_blocks(state, &page.id, hit.width, hit.height, &hit.blocks, ocr_ms).await?;
+        tracing::info!(page = %page.id, key = %cache_key, "识别缓存命中，跳过百度 OCR");
+        return Ok(());
+    }
+
     let client = BaiduClient::new(
         &state.http,
         &state.cfg.baidu.api_key,
@@ -238,17 +253,42 @@ async fn process_page(state: &AppState, group_id: &str, page: &PageRow) -> AppRe
     }
 
     let ocr_ms = started.elapsed().as_millis() as i64;
+
+    // 先落缓存再入库：缓存写失败只记日志，不能影响这一页的结果。
+    if let Err(e) = ocr_cache::save(
+        &state.cfg.data_dir,
+        &cache_key,
+        adapted.width,
+        adapted.height,
+        &blocks_out,
+        &dir,
+    ) {
+        tracing::warn!(error = %e, page = %page.id, "写识别缓存失败");
+    }
+
+    store_blocks(state, &page.id, adapted.width, adapted.height, &blocks_out, ocr_ms).await
+}
+
+/// 一页的块落库。识别与缓存命中共用同一条路径。
+async fn store_blocks(
+    state: &AppState,
+    page_id: &str,
+    width: u32,
+    height: u32,
+    blocks: &[Block],
+    ocr_ms: i64,
+) -> AppResult<()> {
     let mut tx = state.pool.begin().await?;
     sqlx::query("DELETE FROM blocks WHERE page_id = ?")
-        .bind(&page.id)
+        .bind(page_id)
         .execute(&mut *tx)
         .await?;
-    for b in &blocks_out {
+    for b in blocks {
         sqlx::query(
             "INSERT INTO blocks (page_id, ord, label, text, md, x1, y1, x2, y2, poly)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         )
-        .bind(&page.id)
+        .bind(page_id)
         .bind(b.ord)
         .bind(&b.label)
         .bind(&b.text)
@@ -264,14 +304,13 @@ async fn process_page(state: &AppState, group_id: &str, page: &PageRow) -> AppRe
     sqlx::query(
         "UPDATE pages SET status = 'done', w = ?, h = ?, ocr_ms = ?, error = NULL WHERE id = ?",
     )
-    .bind(adapted.width as i64)
-    .bind(adapted.height as i64)
+    .bind(width as i64)
+    .bind(height as i64)
     .bind(ocr_ms)
-    .bind(&page.id)
+    .bind(page_id)
     .execute(&mut *tx)
     .await?;
     tx.commit().await?;
-
     Ok(())
 }
 

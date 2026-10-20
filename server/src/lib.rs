@@ -12,6 +12,7 @@ pub mod docx;
 pub mod error;
 pub mod imaging;
 pub mod latex;
+pub mod ocr_cache;
 pub mod render;
 pub mod routes;
 pub mod state;
