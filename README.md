@@ -43,6 +43,14 @@ cp app/entry/src/main/resources/rawfile/config.example.json \
    app/entry/src/main/resources/rawfile/config.json
 ```
 
+## 识别缓存
+
+百度 OCR 按次计费，同一张图不该识别两次。服务端以页面 `edit.jpg` 的 SHA-256 为键，把适配后的块与页内插图缓存在 `{data_dir}/ocr/v1-<sha256>/`（`result.json` + `figs/`）：
+
+- 重传、换组、失败重试命中同一张图 → 直接读缓存，完全不联网；
+- 命中时 `pages.ocr_ms` 只剩本地耗时（毫秒级），可据此判断；
+- 最多保留 500 张，按最近使用淘汰；`ocr_cache::VERSION` 变更（百度参数或适配逻辑调整）即整体失效。
+
 ## 客户端
 
 用 DevEco Studio 26 打开 `app/` 直接运行；或在命令行用 DevEco 自带的 hvigor 构建（macOS）：
