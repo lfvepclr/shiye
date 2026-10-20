@@ -142,7 +142,7 @@ hdc rport tcp:8080 tcp:8080
 SHIYE_IMG=samples/pages/p01.jpg ./samples/run.sh   # 建组 → 上传 → 渲染 → 下载 docx → 分享链接
 ```
 
-细节见 `samples/README.md`，待办见 `.agent/202610190815-todo.md`。
+细节见 `samples/README.md`；不消耗 OCR 额度的本地端到端验证见 `tools/e2e/README.md`（Apple Vision 出 bbox → 写库 → 量对齐/溢出/LCP）。
 
 ## 敏感信息
 
